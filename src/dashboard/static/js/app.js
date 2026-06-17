@@ -212,7 +212,7 @@ function renderExtras(arr) {
   if (!trackChart) {
     trackChart = new Chart($("trackChart"), {
       type: "bar",
-      data: { labels, datasets: [{ data: bins, backgroundColor: css("--chart"), borderRadius: 3 }] },
+      data: { labels, datasets: [{ data: bins, backgroundColor: () => css("--chart"), borderRadius: 3 }] },
       options: { plugins: { legend: { display: false } },
         scales: { x: { ticks: { color: css("--text"), font: { size: 9 } }, grid: { display: false } },
                   y: { beginAtZero: true, ticks: { color: css("--text"), precision: 0, font: { size: 10 } }, grid: { color: css("--border") } } },
@@ -221,7 +221,6 @@ function renderExtras(arr) {
   } else {
     trackChart.data.labels = labels;
     trackChart.data.datasets[0].data = bins;
-    trackChart.data.datasets[0].backgroundColor = css("--chart");
     trackChart.options.scales.x.ticks.color = css("--text");
     trackChart.options.scales.y.ticks.color = css("--text");
     trackChart.update("none");
@@ -296,17 +295,15 @@ const gaugeCenter = {
 };
 
 function updateCharts(sev, arr) {
-  const colors = [sevColor("High"), sevColor("Medium"), sevColor("Low")];
   if (!sevChart) {
     sevChart = new Chart($("sevChart"), {
       type: "doughnut",
-      data: { labels: ["High", "Medium", "Low"], datasets: [{ data: [0, 0, 0], backgroundColor: colors, borderWidth: 0 }] },
+      data: { labels: ["High", "Medium", "Low"], datasets: [{ data: [0, 0, 0], backgroundColor: (ctx) => [sevColor("High"), sevColor("Medium"), sevColor("Low")][ctx.dataIndex] || css("--muted"), borderWidth: 0 }] },
       options: { plugins: { legend: { labels: { color: css("--muted"), boxWidth: 12 }, position: "bottom" } }, cutout: "68%", responsive: true, maintainAspectRatio: false },
       plugins: [gaugeCenter],
     });
   }
   sevChart.data.datasets[0].data = [sev.High, sev.Medium, sev.Low];
-  sevChart.data.datasets[0].backgroundColor = colors;
   sevChart.options.plugins.legend.labels.color = css("--text");
   sevChart.update("none");
 
@@ -319,7 +316,7 @@ function updateCharts(sev, arr) {
   if (!classChart) {
     classChart = new Chart($("classChart"), {
       type: "bar",
-      data: { labels, datasets: [{ data: [], backgroundColor: css("--chart"), borderRadius: 3, barThickness: 16 }] },
+      data: { labels, datasets: [{ data: [], backgroundColor: () => css("--chart"), borderRadius: 3, barThickness: 16 }] },
       options: {
         indexAxis: "y",
         layout: { padding: { left: 2, right: 16 } },
@@ -332,7 +329,6 @@ function updateCharts(sev, arr) {
   }
   classChart.data.labels = labels;
   classChart.data.datasets[0].data = CLASS_ORDER.map((c) => byClass[c] || 0);
-  classChart.data.datasets[0].backgroundColor = css("--chart");
   classChart.options.scales.x.ticks.color = css("--text");
   classChart.options.scales.x.grid.color = css("--border");
   classChart.options.scales.y.ticks.color = css("--text");
@@ -510,6 +506,7 @@ function applyTheme(theme) {
   if (trackLine) trackLine.setStyle({ color: css("--accent") });
   if (routeLine) routeLine.setStyle({ color: css("--muted") });
   if (sevChart || classChart) renderCards();
+  [sevChart, classChart, trackChart].forEach((c) => { if (c) c.update(); });  // re-resolve theme colours
   renderStrip();
 }
 
