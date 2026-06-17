@@ -307,11 +307,11 @@ function updateCharts(sev, arr) {
   sevChart.options.plugins.legend.labels.color = css("--text");
   sevChart.update("none");
 
-  // defects by class — all seven contract classes (zeros included), horizontal bars
+  // defects by class — the six trained defect classes (zeros included), horizontal bars
   const byClass = {};
   arr.forEach((d) => { byClass[d.defect_class] = (byClass[d.defect_class] || 0) + 1; });
-  const CLASS_ORDER = ["broken_fastener", "missing_fastener", "loose_fastener", "crack", "spalling", "squat", "corrugation"];
-  const CLASS_LABELS = { broken_fastener: "Broken fastener", missing_fastener: "Missing fastener", loose_fastener: "Loose fastener", crack: "Crack", spalling: "Spalling", squat: "Squat", corrugation: "Corrugation" };
+  const CLASS_ORDER = ["broken_fastener", "missing_fastener", "crack", "spalling", "squat", "corrugation"];
+  const CLASS_LABELS = { broken_fastener: "Broken fastener", missing_fastener: "Missing fastener", crack: "Crack", spalling: "Spalling", squat: "Squat", corrugation: "Corrugation" };
   const labels = CLASS_ORDER.map((c) => CLASS_LABELS[c]);
   if (!classChart) {
     classChart = new Chart($("classChart"), {
