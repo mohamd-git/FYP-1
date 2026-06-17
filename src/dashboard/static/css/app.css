@@ -95,8 +95,8 @@ body {
 /* ---- layout ---------------------------------------------------------- */
 .wrap { padding: 16px; display: grid; gap: 16px; align-items: start;
   grid-template-columns: 1fr 1fr;
-  grid-template-areas: "live cards" "triage triage" "queue track" "map map" "strip strip" "table table"; }
-@media (max-width: 980px) { .wrap { grid-template-columns: 1fr; grid-template-areas: "live" "cards" "triage" "queue" "track" "map" "strip" "table"; } }
+  grid-template-areas: "live cards" "status status" "triage triage" "queue track" "map map" "strip strip" "table table"; }
+@media (max-width: 980px) { .wrap { grid-template-columns: 1fr; grid-template-areas: "live" "cards" "status" "triage" "queue" "track" "map" "strip" "table"; } }
 
 .panel {
   background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
@@ -338,3 +338,21 @@ thead th:focus-visible, .strip-mark:focus-visible {
   .topbar .stat-inline { order: 3; flex-basis: 100%; }
   .card .v, .tri .v { font-size: 22px; }
 }
+
+/* ---- system status bar ---------------------------------------------- */
+.area-status { grid-area: status; }
+.status-row { display: flex; flex-wrap: wrap; gap: 12px 8px; }
+.st { flex: 1 1 130px; background: var(--surface-2); border: 1px solid var(--border);
+  border-radius: 9px; padding: 9px 12px; border-top: 2px solid var(--accent); }
+.st-k { color: var(--muted); font-size: 10.5px; text-transform: uppercase; letter-spacing: .5px; font-weight: 600; }
+.st-v { font-size: 17px; font-weight: 800; margin-top: 3px; line-height: 1.15;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.st-u { font-size: 11px; font-weight: 600; color: var(--muted); }
+
+/* ---- card sparkline -------------------------------------------------- */
+.spark { margin-top: 8px; height: 34px; }
+.spark-svg { display: block; width: 100%; height: 34px; }
+
+/* ---- AGV marker pulse (map hero) ------------------------------------- */
+@keyframes agv-ping { 0%, 100% { stroke-opacity: 1; } 50% { stroke-opacity: .35; } }
+.agv-marker { animation: agv-ping 1.6s ease-in-out infinite; }

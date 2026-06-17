@@ -20,6 +20,7 @@ served from ``templates/index.html`` and ``static/`` (CSS, JS, vendored libs).
 
 from __future__ import annotations
 
+import csv
 import os
 from pathlib import Path
 from typing import Any, Optional
@@ -102,6 +103,27 @@ def create_app(config: Optional[dict] = None):
             "status": state["status"],
             "detections_relayed": state["detections"],
         })
+
+    @app.route("/api/track")
+    def api_track():
+        """Planned inspection route (the real rail line) as ordered points."""
+        loc = config.get("localisation", {}) or {}
+        track_csv = (loc.get("track_csv") or loc.get("csv_path")
+                     or paths.get("track_csv") or "data/track.csv")
+        path = resolve_path(track_csv)
+        pts: list[dict] = []
+        if path.is_file():
+            with open(path, "r", encoding="utf-8", newline="") as fh:
+                for row in csv.DictReader(fh):
+                    try:
+                        pts.append({
+                            "lat": float(row["lat"]),
+                            "lng": float(row["lng"]),
+                            "chainage_m": float(row.get("chainage_m") or 0.0),
+                        })
+                    except (KeyError, TypeError, ValueError):
+                        continue
+        return jsonify(pts)
 
     @app.route("/export.csv")
     def export_csv():

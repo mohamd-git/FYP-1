@@ -34,11 +34,42 @@ function animateNumber(id, to) {
   _numTimers.set(id, requestAnimationFrame(step));
 }
 
+// Glide a Leaflet marker from its current point to `to` (eased; respects reduced-motion).
+function glideMarker(marker, to, dur) {
+  const reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const from = marker.getLatLng();
+  if (reduce || !from) { marker.setLatLng(to); return; }
+  if (marker._glide) cancelAnimationFrame(marker._glide);
+  const t0 = performance.now();
+  const step = (t) => {
+    const k = Math.min(1, (t - t0) / dur), e = 1 - Math.pow(1 - k, 3);
+    marker.setLatLng([from.lat + (to[0] - from.lat) * e, from.lng + (to[1] - from.lng) * e]);
+    if (k < 1) marker._glide = requestAnimationFrame(step);
+  };
+  marker._glide = requestAnimationFrame(step);
+}
+
+// Build an inline-SVG sparkline (filled area + line) from a numeric series.
+function renderSpark(id, vals, color) {
+  const el = $(id);
+  if (!el) return;
+  if (!vals || vals.length < 2) { el.innerHTML = ""; return; }
+  const w = 120, h = 34, pad = 3, max = Math.max(1, ...vals), n = vals.length;
+  const x = (i) => pad + (i / (n - 1)) * (w - 2 * pad);
+  const y = (v) => h - pad - (v / max) * (h - 2 * pad);
+  const line = vals.map((v, i) => (i ? "L" : "M") + x(i).toFixed(1) + " " + y(v).toFixed(1)).join(" ");
+  const area = line + ` L ${(w - pad).toFixed(1)} ${(h - pad).toFixed(1)} L ${pad} ${(h - pad).toFixed(1)} Z`;
+  el.innerHTML = `<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" class="spark-svg" aria-hidden="true">`
+    + `<path d="${area}" fill="${color}" opacity="0.13"/>`
+    + `<path d="${line}" fill="none" stroke="${color}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/></svg>`;
+}
+
 // ---- state -------------------------------------------------------------
 const defects = new Map();          // key -> normalised defect
 const markers = new Map();          // key -> Leaflet circleMarker
 const trackPts = [];                // AGV path (from telemetry)
-let map, trackLine, agvMarker, sevChart, classChart;
+let map, trackLine, routeLine, agvMarker, sevChart, classChart;
+let sessionStart = null;
 let sortKey = "urgency_score", sortDir = -1;
 let didFit = false;
 let lastChainage = null, stripRenderedMax = null;
@@ -58,6 +89,7 @@ function norm(d) {
     timestamp: d.timestamp || d.last_seen || d.first_seen || "",
     image_ref: d.image_ref || "",
     frame_count: d.frame_count,
+    model: d.model || "",
   };
 }
 const keyOf = (d) => (d.track_id != null && d.track_id >= 0) ? "t" + d.track_id : "d" + d.detection_id;
@@ -97,6 +129,18 @@ function maybeFit() {
   if (didFit || markers.size === 0) return;
   const grp = L.featureGroup([...markers.values()]);
   try { map.fitBounds(grp.getBounds().pad(0.3)); didFit = true; } catch (e) {}
+}
+
+// Draw the planned inspection route (the real rail line) from /api/track.
+function drawRoute(pts) {
+  if (!pts || !pts.length) return;
+  const latlngs = pts.map((p) => [p.lat, p.lng]);
+  if (routeLine) { routeLine.setLatLngs(latlngs); }
+  else {
+    routeLine = L.polyline(latlngs, { color: css("--muted"), weight: 3, opacity: .6, dashArray: "2 7", lineCap: "round" });
+    routeLine.addTo(map); routeLine.bringToBack();
+  }
+  try { map.fitBounds(routeLine.getBounds().pad(0.15)); didFit = true; } catch (e) {}
 }
 
 // ---- ingest defect -----------------------------------------------------
@@ -210,6 +254,17 @@ function renderCards() {
   const prog = Math.min(100, maxCh / TRACK_TOTAL_M * 100);
   setGauge("g-prog-arc", "g-prog-v", prog, INSPECTED_COLOR, Math.round(prog) + "%");
   setGauge("g-batt-arc", "g-batt-v", lastBattery, gaugeLevel(lastBattery, true), Math.round(lastBattery) + "%");
+  // sparkline: cumulative defects across the run (real timestamps)
+  const times = arr.map((d) => Date.parse(d.timestamp)).filter((t) => !isNaN(t)).sort((a, b) => a - b);
+  if (times.length >= 2) {
+    const BINS = 24, t0 = times[0], span = (times[times.length - 1] - t0) || 1;
+    const cum = new Array(BINS).fill(0);
+    times.forEach((t) => { cum[Math.min(BINS - 1, Math.floor((t - t0) / span * BINS))]++; });
+    for (let i = 1; i < BINS; i++) cum[i] += cum[i - 1];
+    renderSpark("spark-total", cum, css("--accent"));
+  }
+  const m0 = arr.find((d) => d.model);
+  if (m0) setText("st-model", String(m0.model));
   renderExtras(arr);
 }
 
@@ -286,6 +341,10 @@ function onTelemetry(t) {
   setText("hb-fps", (Number(t.fps) || 0).toFixed(1));
   setText("hb-dist", (Number(t.chainage_m) || 0).toFixed(1) + " m");
   setText("hb-batt", Math.round(Number(t.battery_pct) || 0) + "%");
+  setText("st-fps", (Number(t.fps) || 0).toFixed(1));
+  setText("st-lat", Math.round(Number(t.inference_ms) || 0));
+  setText("st-speed", (Number(t.speed_mps) || 0).toFixed(1));
+  setText("st-updated", "updated " + new Date().toLocaleTimeString());
   const bp = Number(t.battery_pct) || 0; lastBattery = bp;
   setGauge("g-batt-arc", "g-batt-v", bp, gaugeLevel(bp, true), Math.round(bp) + "%");
   const prog = Math.min(100, (Number(t.chainage_m) || 0) / TRACK_TOTAL_M * 100);
@@ -293,8 +352,8 @@ function onTelemetry(t) {
   if (Number.isFinite(t.lat) && Number.isFinite(t.lng)) {
     trackPts.push([t.lat, t.lng]);
     trackLine.setLatLngs(trackPts);
-    if (agvMarker) { agvMarker.setLatLng([t.lat, t.lng]); }
-    else { agvMarker = L.circleMarker([t.lat, t.lng], { radius: 6, color: css("--accent"), fillColor: css("--bg"), fillOpacity: 1, weight: 3 }).addTo(map).bindTooltip("AGV"); }
+    if (agvMarker) { glideMarker(agvMarker, [t.lat, t.lng], 700); }
+    else { agvMarker = L.circleMarker([t.lat, t.lng], { radius: 6, color: css("--accent"), fillColor: css("--bg"), fillOpacity: 1, weight: 3, className: "agv-marker" }).addTo(map).bindTooltip("AGV"); }
     maybeFit();
   }
   lastChainage = Number(t.chainage_m) || 0;
@@ -443,6 +502,7 @@ function applyTheme(theme) {
   $("theme-btn").textContent = theme === "dark" ? "☀ Light" : "☾ Dark";
   // recolour live elements
   if (trackLine) trackLine.setStyle({ color: css("--accent") });
+  if (routeLine) routeLine.setStyle({ color: css("--muted") });
   if (sevChart || classChart) renderCards();
   renderStrip();
 }
@@ -470,9 +530,16 @@ function start() {
 
   const socket = io();
   const conn = $("conn");
-  socket.on("connect", () => { conn.className = "pill live"; conn.querySelector(".lbl").textContent = "LIVE"; });
-  socket.on("disconnect", () => { conn.className = "pill off"; conn.querySelector(".lbl").textContent = "OFFLINE"; });
-  socket.on("detection", (d) => { ingest(d); updateFrame(norm(d)); });
+  socket.on("connect", () => {
+    conn.className = "pill live"; conn.querySelector(".lbl").textContent = "LIVE";
+    const l = $("st-link"); if (l) { l.textContent = "ONLINE"; l.style.color = css("--low"); }
+    if (sessionStart == null) sessionStart = Date.now();
+  });
+  socket.on("disconnect", () => {
+    conn.className = "pill off"; conn.querySelector(".lbl").textContent = "OFFLINE";
+    const l = $("st-link"); if (l) { l.textContent = "OFFLINE"; l.style.color = css("--high"); }
+  });
+  socket.on("detection", (d) => { ingest(d); updateFrame(norm(d)); if (d.model) setText("st-model", String(d.model)); });
   socket.on("telemetry", onTelemetry);
   socket.on("status", onStatus);
 
@@ -484,8 +551,19 @@ function start() {
   }).catch(() => {});
   fetch("/api/state").then((r) => r.json()).then((s) => { if (s.telemetry) onTelemetry(s.telemetry); if (s.status) onStatus(s.status); }).catch(() => {});
 
+  // Draw the real rail line (planned inspection route) beneath the markers.
+  fetch("/api/track").then((r) => r.json()).then(drawRoute).catch(() => {});
+
   // keep the live frame fresh even between detections
   setInterval(() => { const img = $("liveframe"); if (img && img.style.display !== "none") img.src = "/latest_frame.jpg?t=" + Date.now(); }, 4000);
+
+  // session clock for the system-status panel
+  setInterval(() => {
+    if (sessionStart == null) return;
+    const s = Math.floor((Date.now() - sessionStart) / 1000);
+    const mm = String(Math.floor(s / 60)).padStart(2, "0"), ss = String(s % 60).padStart(2, "0");
+    setText("st-uptime", mm + ":" + ss);
+  }, 1000);
 }
 
 document.addEventListener("DOMContentLoaded", start);
