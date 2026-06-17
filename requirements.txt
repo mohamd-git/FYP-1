@@ -1,0 +1,35 @@
+# =============================================================================
+# requirements.txt -- AGV PoC (Python 3.11+).
+# CPU-ONLY: the torch wheels on PyPI for Windows/macOS are CPU builds, so no
+# CUDA / GPU index is needed -- a plain "pip install" gets the right wheels.
+# Major libraries are pinned to compatible ranges for reproducibility.
+# =============================================================================
+
+# --- Config & data models ---
+pydantic>=2.6,<3.0
+PyYAML>=6.0,<7.0
+python-dotenv>=1.0,<2.0
+
+# --- Vision / ML (CPU) ---
+ultralytics>=8.2,<9.0
+torch>=2.2,<2.8
+torchvision>=0.17,<0.23
+# Headless build: identical cv2 API, no GUI/libGL system deps (this app is a
+# server -- it never opens an OpenCV window). Keeps the Docker image slim.
+opencv-python-headless>=4.9,<5.0
+numpy>=1.26,<2.3
+# Linear-assignment solver for Ultralytics' ByteTrack/BoT-SORT trackers.
+# Pinned here so Ultralytics doesn't try to pip-install it at runtime on first track():
+lap>=0.5.12
+
+# --- Messaging ---
+paho-mqtt>=2.0,<3.0
+
+# --- Dashboard (server) ---
+Flask>=3.0,<4.0
+Flask-SocketIO>=5.3,<6.0
+# Lets Socket.IO run in threading mode -- no eventlet/gevent C-build on Windows:
+simple-websocket>=1.0,<2.0
+
+# --- Testing ---
+pytest>=8.0,<9.0

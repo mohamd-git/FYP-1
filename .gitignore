@@ -1,0 +1,46 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+# --- Virtual environment ---
+.venv/
+venv/
+env/
+
+# --- Environment / secrets ---
+.env
+
+# --- Model weights ---
+# Large binaries. Ultralytics auto-downloads base weights (yolov8n.pt, ...) into
+# the cwd and training writes checkpoints; ignore them all, but keep the one
+# deployed model so the system runs straight from a clone.
+*.pt
+*.tflite
+*.onnx
+*.engine
+!models/yolo_rail.pt
+
+# --- Project data & generated outputs ---
+# Datasets, demo media, the runtime DB and generated artefacts are large and
+# reproducible (build_*.py / train.py / evaluate.py). Keep only small essentials.
+data/*
+!data/track.csv
+!data/README.md
+captures/
+evaluation/
+
+# --- SQLite ---
+*.db
+*.sqlite3
+
+# --- Logs ---
+*.log
+
+# --- OS / editor / tooling ---
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+.gstack/

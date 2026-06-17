@@ -1,0 +1,29 @@
+# Brings up the Mosquitto broker + the AGV app (pipeline + dashboard) together.
+#   docker compose up --build
+# Then open the dashboard at http://localhost:5000
+services:
+  mosquitto:
+    image: eclipse-mosquitto:2
+    container_name: agv-mosquitto
+    ports:
+      - "1883:1883"
+    volumes:
+      - ./docker/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+    restart: unless-stopped
+
+  app:
+    build: .
+    container_name: agv-app
+    depends_on:
+      - mosquitto
+    environment:
+      AGV_MQTT_HOST: mosquitto         # point the app at the broker service
+      AGV_DASHBOARD_HOST: 0.0.0.0      # bind the dashboard on all interfaces
+      FLASK_SECRET_KEY: docker-demo-change-me
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./data:/app/data               # footage, corridor CSV, SQLite register
+      - ./models:/app/models           # trained weights (optional; yolov8n auto-fetched otherwise)
+      - ./evaluation:/app/evaluation   # reports / evidence pack
+    restart: unless-stopped

@@ -1,0 +1,69 @@
+# =============================================================================
+# rules.yaml -- Prescriptive maintenance rules (Step 3).
+#
+# These are ILLUSTRATIVE DEFAULTS, designed to be TUNED and validated by the
+# student against railway maintenance standards and the trained model's
+# confidence distribution. Every number here is adjustable without touching code
+# -- src/prescriptive/engine.py reads all of it.
+#
+# Pipeline:  detection --> severity --> urgency_score (0-100) --> action band
+# =============================================================================
+
+version: 2
+
+# --- Severity rubric --------------------------------------------------------
+# A class maps EITHER to a fixed severity ("High" | "Medium" | "Low")
+# OR to a conditional block that escalates from `default` to `escalate_to`
+# when the detection is large enough and/or confident enough.
+severity:
+  missing_fastener: High      # safety-critical
+  broken_fastener: High       # safety-critical
+  spalling: Medium
+  squat: Medium
+  loose_fastener: Medium
+  corrugation: Low
+  crack:
+    default: Medium
+    escalate_to: High
+    if_area_frac_gte: 0.02    # "large"  = bbox covers >= 2% of the frame
+    if_confidence_gte: 0.70   # "high confidence"
+    # -> escalates to High if EITHER condition is met
+
+# --- Urgency score (0-100) --------------------------------------------------
+# score = 100 * ( weights.severity   * (severity_weight / max_severity_weight)
+#               + weights.confidence * confidence
+#               + weights.size       * size_factor )
+# size_factor = min(1, (bbox_area / frame_area) / size_norm_frac)
+urgency:
+  severity_weight:            # High=3, Medium=2, Low=1 (per the brief)
+    High: 3
+    Medium: 2
+    Low: 1
+  weights:                    # component mix; should sum to 1.0 -- tune to taste
+    severity: 0.55
+    confidence: 0.30
+    size: 0.15
+  size_norm_frac: 0.10        # bbox area fraction treated as "maximum size" (factor = 1.0)
+
+# --- Action bands (by score; highest matching `min` wins) -------------------
+bands:
+  - { min: 75, label: "Immediate (within 24 h)" }
+  - { min: 50, label: "Schedule within 7 days" }
+  - { min: 25, label: "Routine (next maintenance cycle)" }
+  - { min: 0,  label: "Monitor" }
+
+# --- Per-class action phrasing ----------------------------------------------
+# Final recommended_action = "<phrase>. <band label>."
+actions:
+  crack: "Inspect and grind/repair the rail-surface crack (NDT if it persists)"
+  spalling: "Assess rail-head spalling and grind before it propagates"
+  corrugation: "Plan rail grinding to remove corrugation"
+  squat: "Monitor and grind the squat defect"
+  missing_fastener: "Dispatch a crew to refit the missing fastener; consider a speed restriction"
+  broken_fastener: "Replace the broken fastener; consider a speed restriction"
+  loose_fastener: "Re-tension and secure the loose fastener"
+
+# --- Fallbacks (used only if a class/key is missing above) ------------------
+defaults:
+  severity: "Low"
+  recommended_action: "Manual review required"

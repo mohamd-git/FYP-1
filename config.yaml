@@ -1,0 +1,112 @@
+# =============================================================================
+# config.yaml -- ALL tunable settings for the AGV PoC.
+# Nothing in src/ is hard-coded: every path, threshold and topic lives here.
+# SECRETS (MQTT username/password, Flask key) live in .env, NOT in this file.
+# =============================================================================
+
+project:
+  name: "AGV for Rail Defect Detection -- Inspection & Smart Maintenance System"
+  version: "0.1.0"
+  phase: "PoC (software-only, laptop CPU)"
+
+# --- Paths (relative to the project root) ------------------------------------
+paths:
+  data_dir: "data"
+  video_input: "data/rail_demo.mp4"      # used when source.type == video
+  image_folder: "data/frames"            # used when source.type == images
+  gps_csv: "data/track.csv"              # corridor CSV: lat,lng,chainage_m (PoC)
+  output_dir: "data/output"              # annotated frames / crops
+  crops_dir: "data/output/crops"         # saved defect crops (image_ref)
+  database: "data/agv.db"                # SQLite store
+
+# --- Frame source (swappable seam #1) ----------------------------------------
+source:
+  type: "images"         # video | images        (Phase 2: camera)
+  loop: false            # restart when exhausted (handy for demos)
+  target_fps: 2          # pace a file like a live camera; 0 = unthrottled (benchmark)
+
+# --- Inference engine (swappable seam #2) ------------------------------------
+inference:
+  engine: "ultralytics"               # ultralytics (PoC)   (Phase 2: tflite_coral)
+  model_path: "models/yolo_rail.pt"   # custom-trained weights (added later)
+  fallback_model: "yolov8n.pt"        # open YOLO weights, auto-fetched if above is missing
+  device: "cpu"                       # CPU-only PoC
+  image_size: 640
+  confidence_threshold: 0.50          # ignore detections below this confidence
+  iou_threshold: 0.45                 # NMS IoU threshold
+  track: true                         # enable multi-object tracking
+  tracker: "bytetrack.yaml"           # Ultralytics tracker config
+  # The seven contract defect classes (order matters for trained models):
+  class_names:
+    - crack
+    - spalling
+    - corrugation
+    - squat
+    - missing_fastener
+    - broken_fastener
+    - loose_fastener
+  # --- PoC DEMO ONLY -----------------------------------------------------------
+  # The bundled placeholder model (yolov8n) detects COCO objects, not rail
+  # defects. This map relabels its outputs to defect classes so the end-to-end
+  # demo (run.py -> MQTT) emits Detection messages BEFORE a rail model exists.
+  # It is a NO-OP once you train real weights (which emit the defect classes
+  # directly, none of these COCO keys). Set to {} to disable.
+  class_map:
+    # Trained rail model (fastener dataset) -> the 7 contract classes.
+    # Only DEFECT classes are mapped; healthy 'fastener' / 'fastener-2' /
+    # 'trackbed_stuff' are left out so they're skipped (we report defects, not
+    # healthy clips). This replaces the old COCO placeholder mapping.
+    missing: missing_fastener
+    fastener_broken: broken_fastener
+    fastener2_broken: broken_fastener
+
+# --- Localisation (swappable seam #3) ----------------------------------------
+localisation:
+  source: "sim_csv"             # sim_csv (PoC)   (Phase 2: gps_imu)
+  gps_csv: "data/track.csv"
+  inspection_speed_mps: 6.0     # survey speed, m/s (spreads defects along the corridor for the demo)
+  start_chainage_m: 0.0         # chainage at the start of the run
+
+# --- MQTT (broker host/port/topics; CREDENTIALS come from .env) --------------
+mqtt:
+  host: "localhost"     # local Mosquitto broker (PoC default)
+  port: 1883
+  keepalive: 60
+  client_id: "agv-poc"
+  qos: 1
+  use_tls: false
+  topics:
+    detections: "agv/detections"
+    telemetry: "agv/telemetry"
+    status: "agv/status"
+  # Public fallback broker (no account needed) if no local broker is running:
+  fallback:
+    host: "broker.hivemq.com"
+    port: 1883
+
+# --- Telemetry simulation ----------------------------------------------------
+telemetry:
+  publish_interval_s: 1.0       # how often to emit a Telemetry sample
+  battery_start_pct: 100.0
+  battery_drain_per_min: 0.5    # simulated battery drain
+
+# --- Storage -----------------------------------------------------------------
+storage:
+  sqlite_path: "data/agv.db"
+  save_crops: true              # write defect crops referenced by image_ref
+
+# --- Dashboard (Flask + Socket.IO) -------------------------------------------
+# NOTE: the visual design/theme is NOT chosen yet -- 2-3 options will be
+# proposed for approval before any UI is built (see README -> "Design approval").
+dashboard:
+  host: "127.0.0.1"
+  port: 5000
+  map_start: { lat: 3.160174, lng: 101.717120 }   # on a real KL rail line (see data/track.csv)
+  map_zoom: 17
+
+# --- Logging -----------------------------------------------------------------
+logging:
+  level: "INFO"                 # DEBUG | INFO | WARNING | ERROR
+
+# Fixed RNG seed for reproducible runs (seeds Python / NumPy / torch).
+random_seed: 0

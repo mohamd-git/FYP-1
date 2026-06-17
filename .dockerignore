@@ -1,0 +1,20 @@
+# Keep the build context small (these are mounted at runtime or regenerated).
+.venv/
+__pycache__/
+*.pyc
+.git/
+.gitignore
+# Never bake the local secrets file into the image (compose injects env vars).
+.env
+captures/
+data/output/
+data/*.mp4
+data/*.avi
+data/*.mov
+evaluation/
+models/*.pt
+*.pt
+*.db
+*.db-wal
+*.db-shm
+*.md

@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AGV Rail Inspection — Operator Dashboard</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet" />
+
+  <link rel="stylesheet" href="/static/vendor/leaflet/leaflet.css" />
+  <link rel="stylesheet" href="/static/css/app.css?v=6" />
+</head>
+<body>
+  <!-- ===== top bar ===== -->
+  <header class="topbar">
+    <div class="brand">
+      <div class="logo">AGV</div>
+      <div>AGV Rail Defect Detection
+        <small>Inspection &amp; Smart Maintenance &middot; operator dashboard</small>
+      </div>
+    </div>
+    <div class="spacer"></div>
+    <div class="stat-inline mono">
+      state <b id="agv-state">—</b> &nbsp;|&nbsp; fps <b id="hb-fps">—</b>
+      &nbsp;|&nbsp; dist <b id="hb-dist">—</b> &nbsp;|&nbsp; batt <b id="hb-batt">—</b>
+    </div>
+    <span class="pill off" id="conn"><span class="dot"></span><span class="lbl">connecting…</span></span>
+    <button class="btn" id="theme-btn">☀ Light</button>
+  </header>
+
+  <main class="wrap">
+    <!-- ===== live view ===== -->
+    <section class="panel area-live">
+      <header><h2>Live view</h2><span class="spacer"></span>
+        <span class="legend"><span class="mono" style="font-size:12px">latest annotated detection</span></span>
+      </header>
+      <div class="body">
+        <div class="live-frame" id="live-frame">
+          <span class="tag" id="frame-tag" style="display:none"></span>
+          <img id="liveframe" alt="latest detection" style="display:none"
+               onerror="this.style.display='none';var e=document.getElementById('frame-empty');if(e)e.style.display='';" />
+          <div class="empty" id="frame-empty">Waiting for the first detection…</div>
+        </div>
+        <div class="live-meta">
+          latest: <b id="frame-meta-class">—</b> &middot; severity <b id="frame-meta-sev">—</b>
+          &middot; urgency <b id="frame-meta-urg">—</b> &middot; chainage <b id="frame-meta-chain">—</b>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== overview cards + charts ===== -->
+    <section class="panel area-cards">
+      <header><h2>Overview</h2></header>
+      <div class="body">
+        <div class="cards-grid">
+          <div class="card accent"><div class="k">Total defects</div><div class="v" id="c-total">0</div></div>
+          <div class="card"><div class="k">Health score</div><div class="v" id="c-health">&mdash;</div><div class="u" id="c-health-l"></div></div>
+          <div class="card sev-high"><div class="k">High</div><div class="v" id="c-high">0</div></div>
+          <div class="card sev-med"><div class="k">Medium</div><div class="v" id="c-med">0</div></div>
+          <div class="card sev-low"><div class="k">Low</div><div class="v" id="c-low">0</div></div>
+          <div class="card"><div class="k">FPS</div><div class="v mono" id="c-fps">—</div></div>
+          <div class="card"><div class="k">Inference</div><div class="v mono" id="c-latency">—</div><div class="u">ms</div></div>
+          <div class="card"><div class="k">Distance</div><div class="v mono" id="c-distance">—</div><div class="u">m inspected</div></div>
+        </div>
+        <div style="display:grid;grid-template-columns:0.85fr 1.15fr;gap:12px;margin-top:14px">
+          <div><div class="card-k mono" style="color:var(--muted);font-size:11.5px;text-transform:uppercase;letter-spacing:.5px">By severity</div>
+            <div class="chart-box"><canvas id="sevChart"></canvas></div></div>
+          <div><div class="card-k mono" style="color:var(--muted);font-size:11.5px;text-transform:uppercase;letter-spacing:.5px">By class</div>
+            <div class="chart-box"><canvas id="classChart"></canvas></div></div>
+        </div>
+        <div class="card-k mono" style="color:var(--muted);font-size:11.5px;text-transform:uppercase;letter-spacing:.5px;margin-top:16px">System gauges</div>
+        <div class="gauges-row" style="margin-top:8px">
+          <div class="gw"><svg viewBox="0 0 96 96" class="gsvg" role="img" aria-label="Battery gauge"><circle class="gtrk" cx="48" cy="48" r="40" transform="rotate(135 48 48)"/><circle class="gval" id="g-batt-arc" cx="48" cy="48" r="40" transform="rotate(135 48 48)"/><text class="gval-t" id="g-batt-v" x="48" y="48">&mdash;</text></svg><div class="gw-l">Battery</div></div>
+          <div class="gw"><svg viewBox="0 0 96 96" class="gsvg" role="img" aria-label="Inspection progress gauge"><circle class="gtrk" cx="48" cy="48" r="40" transform="rotate(135 48 48)"/><circle class="gval" id="g-prog-arc" cx="48" cy="48" r="40" transform="rotate(135 48 48)"/><text class="gval-t" id="g-prog-v" x="48" y="48">&mdash;</text></svg><div class="gw-l">Inspected</div></div>
+          <div class="gw"><svg viewBox="0 0 96 96" class="gsvg" role="img" aria-label="Average urgency gauge"><circle class="gtrk" cx="48" cy="48" r="40" transform="rotate(135 48 48)"/><circle class="gval" id="g-urg-arc" cx="48" cy="48" r="40" transform="rotate(135 48 48)"/><text class="gval-t" id="g-urg-v" x="48" y="48">&mdash;</text></svg><div class="gw-l">Avg urgency</div></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== urgency triage ===== -->
+    <section class="panel area-triage">
+      <header><h2>Maintenance priority</h2></header>
+      <div class="body triage-row">
+        <div class="tri tri-imm"><div class="k">Immediate</div><div class="v mono" id="t-imm">0</div><div class="u">&lt; 24 h</div></div>
+        <div class="tri tri-sch"><div class="k">Schedule</div><div class="v mono" id="t-sch">0</div><div class="u">this week</div></div>
+        <div class="tri tri-rou"><div class="k">Routine</div><div class="v mono" id="t-rou">0</div><div class="u">planned</div></div>
+        <div class="tri tri-mon"><div class="k">Monitor</div><div class="v mono" id="t-mon">0</div><div class="u">watch</div></div>
+      </div>
+    </section>
+
+    <!-- ===== priority work queue ===== -->
+    <section class="panel area-queue">
+      <header><h2>Priority work queue</h2><span class="spacer"></span><span class="count" id="q-count"></span></header>
+      <div class="body"><div class="queue" id="queue"><div class="q-empty">No defects yet.</div></div></div>
+    </section>
+
+    <!-- ===== defects along track ===== -->
+    <section class="panel area-track">
+      <header><h2>Defects along track</h2><span class="spacer"></span><span class="legend"><span class="mono" style="font-size:11px">count per 10 m</span></span></header>
+      <div class="body"><div class="chart-box" style="height:230px"><canvas id="trackChart"></canvas></div></div>
+    </section>
+
+    <!-- ===== map ===== -->
+    <section class="panel area-map">
+      <header><h2>Live map &mdash; inspected track &amp; defects</h2><span class="spacer"></span>
+        <span class="legend">
+          <span><span class="sw" style="background:var(--high)"></span>High</span>
+          <span><span class="sw" style="background:var(--med)"></span>Medium</span>
+          <span><span class="sw" style="background:var(--low)"></span>Low</span>
+          <span><span class="sw" style="background:var(--accent)"></span>AGV / track</span>
+        </span>
+      </header>
+      <div id="map"></div>
+    </section>
+
+    <!-- ===== chainage strip ===== -->
+    <section class="panel area-strip">
+      <header><h2>Chainage strip &mdash; defects along the track</h2><span class="spacer"></span>
+        <span class="legend">
+          <span><span class="sw" style="background:var(--high)"></span>High</span>
+          <span><span class="sw" style="background:var(--med)"></span>Medium</span>
+          <span><span class="sw" style="background:var(--low)"></span>Low</span>
+          <span><span class="sw" style="background:var(--accent)"></span>AGV</span>
+        </span>
+      </header>
+      <div class="body">
+        <div class="strip" id="strip">
+          <div class="strip-track"></div>
+          <div class="strip-marks" id="strip-marks"></div>
+          <div class="strip-agv" id="strip-agv" style="display:none"></div>
+          <div class="strip-tip" id="strip-tip" style="display:none"></div>
+        </div>
+        <div class="strip-axis" id="strip-axis"></div>
+        <div class="strip-detail" id="strip-detail">Hover a marker for details &middot; click to locate it on the map.</div>
+      </div>
+    </section>
+
+    <!-- ===== maintenance log / detections table ===== -->
+    <section class="panel area-table">
+      <header>
+        <h2>Maintenance log</h2>
+        <span class="count" id="row-count">0 rows</span>
+        <span class="spacer"></span>
+        <div class="controls">
+          <select id="filter-sev" title="Filter by severity">
+            <option value="all">All severities</option>
+            <option value="High">High</option><option value="Medium">Medium</option><option value="Low">Low</option>
+          </select>
+          <select id="filter-class" title="Filter by class"><option value="all">All classes</option></select>
+          <a class="btn accent" href="/export.csv">&#11015; Download CSV</a>
+          <a class="btn" href="/export.json">JSON</a>
+        </div>
+      </header>
+      <div class="body" style="padding:0">
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th data-key="timestamp">Time <span class="arr"></span></th>
+                <th data-key="defect_class">Defect class <span class="arr"></span></th>
+                <th data-key="confidence">Conf. <span class="arr"></span></th>
+                <th data-key="severity">Severity <span class="arr">▼</span></th>
+                <th data-key="urgency_score">Urgency <span class="arr"></span></th>
+                <th>Recommended action</th>
+                <th>Lat / Lng</th>
+                <th data-key="chainage_m">Chainage (m) <span class="arr"></span></th>
+              </tr>
+            </thead>
+            <tbody id="tbody">
+              <tr class="empty-row"><td colspan="8">No detections yet.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="/static/vendor/leaflet/leaflet.js"></script>
+  <script src="/static/vendor/chart.umd.min.js"></script>
+  <script src="/static/socket.io.min.js"></script>
+  <script src="/static/js/app.js?v=6"></script>
+</body>
+</html>

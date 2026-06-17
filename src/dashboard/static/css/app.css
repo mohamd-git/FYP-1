@@ -1,0 +1,272 @@
+/* =========================================================================
+   AGV Rail Inspection — operator dashboard
+   Theme: "HUD" — dark glow (default) + light Control Room (toggle).
+   Palette: teal accent + neon red / amber / green, soft glows.
+   Fonts: Inter (UI) + JetBrains Mono (numbers/IDs).
+   ========================================================================= */
+
+:root[data-theme="dark"] {
+  --bg: #0A1424;
+  --surface: #0F1F38;
+  --surface-2: #13294A;
+  --border: #1E3A5C;
+  --text: #D6ECF2;
+  --muted: #6088A0;
+  --accent: #2EE6C8;
+  --accent-ink: #04231E;
+  --accent-soft: #7FF1DF;
+  --chart: #2EE6C8;
+  --high: #FF5B6E;
+  --med: #FFB23D;
+  --low: #36E07F;
+  --shadow: 0 2px 10px rgba(0, 0, 0, .45);
+  --map-filter: invert(1) hue-rotate(180deg) brightness(.9) contrast(.85) saturate(.75);
+}
+
+:root[data-theme="light"] {
+  --bg: #E9EDF1;
+  --surface: #FFFFFF;
+  --surface-2: #EEF1F4;
+  --border: #D2D8DE;
+  --text: #1B2530;
+  --muted: #5C6B79;
+  --accent: #2F3E46;
+  --accent-ink: #FFFFFF;
+  --accent-soft: #37474F;
+  --chart: #2F6FB0;
+  --high: #C62828;
+  --med: #EF6C00;
+  --low: #2E7D32;
+  --shadow: 0 1px 3px rgba(16, 24, 40, .10);
+  --map-filter: saturate(.9);
+}
+
+* { box-sizing: border-box; }
+
+html, body { margin: 0; height: 100%; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: "Inter", system-ui, "Segoe UI", Roboto, Arial, sans-serif;
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.mono { font-family: "JetBrains Mono", ui-monospace, Consolas, monospace; }
+
+/* ---- top bar --------------------------------------------------------- */
+.topbar {
+  display: flex; align-items: center; gap: 16px;
+  padding: 12px 20px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  position: sticky; top: 0; z-index: 1000;
+}
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 700; letter-spacing: .3px; }
+.brand .logo {
+  width: 30px; height: 30px; border-radius: 7px; flex: 0 0 auto;
+  background: var(--accent);
+  display: grid; place-items: center; color: var(--accent-ink); font-weight: 700; font-size: 13px;
+}
+.brand small { display: block; font-weight: 500; color: var(--muted); font-size: 11px; letter-spacing: .2px; }
+.topbar .spacer { flex: 1; }
+.topbar .stat-inline { color: var(--muted); font-size: 12px; }
+.topbar .stat-inline b { color: var(--text); }
+
+.pill {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 5px 11px; border-radius: 999px;
+  background: var(--surface-2); border: 1px solid var(--border);
+  font-size: 12px; font-weight: 600;
+}
+.dot { width: 9px; height: 9px; border-radius: 50%; background: var(--muted); }
+.pill.live .dot { background: var(--low); }
+.pill.off .dot { background: var(--high); }
+
+.btn {
+  cursor: pointer; border: 1px solid var(--border); background: var(--surface-2);
+  color: var(--text); padding: 7px 12px; border-radius: 8px; font-size: 13px; font-weight: 600;
+}
+.btn:hover { border-color: var(--accent); }
+.btn.accent { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
+.btn.accent:hover { filter: brightness(1.07); }
+
+/* ---- layout ---------------------------------------------------------- */
+.wrap { padding: 16px; display: grid; gap: 16px; align-items: start;
+  grid-template-columns: 1fr 1fr;
+  grid-template-areas: "live cards" "triage triage" "queue track" "map map" "strip strip" "table table"; }
+@media (max-width: 980px) { .wrap { grid-template-columns: 1fr; grid-template-areas: "live" "cards" "triage" "queue" "track" "map" "strip" "table"; } }
+
+.panel {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+  box-shadow: var(--shadow); overflow: hidden;
+}
+.panel > header {
+  display: flex; align-items: center; gap: 10px; padding: 11px 14px;
+  border-top: 2px solid var(--accent);
+  border-bottom: 1px solid var(--border); background: var(--surface-2);
+}
+.panel > header h2 { margin: 0; font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: .6px; color: var(--accent-soft); }
+.panel > header .spacer { flex: 1; }
+.panel .body { padding: 14px; }
+
+.area-live { grid-area: live; }
+.area-cards { grid-area: cards; }
+.area-map { grid-area: map; }
+.area-strip { grid-area: strip; }
+.area-table { grid-area: table; }
+.area-gauges { grid-area: gauges; }
+.area-triage { grid-area: triage; }
+.area-queue { grid-area: queue; }
+.area-track { grid-area: track; }
+
+/* ---- live view ------------------------------------------------------- */
+.live-frame { position: relative; background: #16202A; border-radius: 8px; overflow: hidden; min-height: 220px;
+  display: grid; place-items: center; border: 2px solid var(--border); transition: border-color .2s; }
+.live-frame img { width: 100%; display: block; }
+.live-frame .empty { color: var(--muted); padding: 40px; font-size: 13px; }
+.live-frame .tag {
+  position: absolute; top: 10px; left: 10px; padding: 4px 9px; border-radius: 6px;
+  font-size: 12px; font-weight: 700; color: #fff; background: rgba(0,0,0,.6);
+}
+.live-frame .tag .sw { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
+.live-meta { margin-top: 10px; color: var(--muted); font-size: 12.5px; }
+.live-meta b { color: var(--text); }
+
+/* ---- stat cards ------------------------------------------------------ */
+.cards-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+@media (max-width: 520px) { .cards-grid { grid-template-columns: repeat(2, 1fr); } }
+.card { background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; }
+.card .k { color: var(--muted); font-size: 11.5px; text-transform: uppercase; letter-spacing: .5px; }
+.card .v { font-size: 26px; font-weight: 800; margin-top: 4px; }
+.card .u { color: var(--muted); font-size: 12px; font-weight: 600; }
+.card.sev-high { border-left: 4px solid var(--high); }
+.card.sev-med  { border-left: 4px solid var(--med); }
+.card.sev-low  { border-left: 4px solid var(--low); }
+.card.sev-high .v { color: var(--high); }
+.card.sev-med .v  { color: var(--med); }
+.card.sev-low .v  { color: var(--low); }
+.card.accent .v { color: var(--accent); }
+.card.accent { position: relative; overflow: hidden; }
+.card.accent::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 4px;
+  background: linear-gradient(180deg, var(--low), var(--accent)); }
+.card.is-zero { opacity: .45; }
+.card.is-zero .v { color: var(--muted); }
+.chart-box { margin-top: 12px; height: 200px; }
+
+/* ---- map ------------------------------------------------------------- */
+#map { height: 420px; width: 100%; }
+.leaflet-tile-pane { filter: var(--map-filter); transition: filter .2s; }
+.leaflet-popup-content { font-family: "Inter", system-ui, sans-serif; font-size: 12.5px; }
+.popup-h { font-weight: 700; margin-bottom: 4px; }
+.popup-row { color: #333; }
+.legend { display: flex; gap: 14px; align-items: center; color: var(--muted); font-size: 12px; }
+.legend .sw { width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-right: 5px; }
+
+/* ---- table ----------------------------------------------------------- */
+.controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.controls select, .controls input {
+  background: var(--surface); color: var(--text); border: 1px solid var(--border);
+  border-radius: 7px; padding: 6px 9px; font-size: 13px; font-family: inherit;
+}
+.table-scroll { overflow: auto; max-height: 460px; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+thead th {
+  position: sticky; top: 0; background: var(--surface-2); color: var(--accent-soft);
+  text-align: left; padding: 9px 10px; border-bottom: 2px solid var(--accent);
+  font-size: 11.5px; text-transform: uppercase; letter-spacing: .4px; cursor: pointer; white-space: nowrap;
+}
+thead th .arr { color: var(--accent); font-size: 10px; }
+tbody td { padding: 9px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+tbody tr:nth-child(even) { background: var(--surface-2); }
+tbody tr:hover { background: var(--border); }
+.badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11.5px; font-weight: 700; color: #fff; }
+.badge.High { background: var(--high); } .badge.Medium { background: var(--med); } .badge.Low { background: var(--low); }
+.urg { font-weight: 700; }
+.action { color: var(--muted); max-width: 320px; }
+.empty-row td { color: var(--muted); text-align: center; padding: 24px; }
+.count { color: var(--muted); font-weight: 600; font-size: 12px; }
+
+/* ---- chainage strip -------------------------------------------------- */
+.strip { position: relative; height: 54px; margin: 6px 4px 2px; }
+.strip-track { position: absolute; left: 0; right: 0; bottom: 22px; height: 4px; border-radius: 2px;
+  background: var(--surface-2); border: 1px solid var(--border); }
+.strip-marks { position: absolute; inset: 0; }
+.strip-mark { position: absolute; bottom: 24px; width: 11px; height: 11px; border-radius: 50%;
+  background: var(--c, var(--muted)); border: 2px solid var(--surface);
+  transform: translate(-50%, 50%); cursor: pointer; transition: transform .12s; }
+.strip-mark:hover, .strip-mark.sel { transform: translate(-50%, 50%) scale(1.4); z-index: 5; }
+.strip-mark.sel { box-shadow: 0 0 0 3px color-mix(in srgb, var(--c) 40%, transparent); }
+.strip-agv { position: absolute; top: 6px; bottom: 18px; width: 2px; background: var(--accent);
+  transform: translateX(-50%); pointer-events: none; }
+.strip-agv::before { content: "\25B2"; position: absolute; top: -13px; left: 50%; transform: translateX(-50%);
+  color: var(--accent); font-size: 10px; }
+.strip-axis { display: flex; justify-content: space-between; color: var(--muted);
+  font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 11px; padding: 0 2px; }
+.strip-tip { position: absolute; bottom: 60px; transform: translateX(-50%); z-index: 30;
+  background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px;
+  box-shadow: var(--shadow); max-width: 260px; font-size: 12px; pointer-events: none; }
+.strip-detail { margin-top: 12px; color: var(--muted); font-size: 12.5px; min-height: 18px;
+  border-top: 1px dashed var(--border); padding-top: 8px; }
+.strip-tip .popup-h, .strip-detail .popup-h { color: var(--text); }
+.strip-tip .popup-row, .strip-detail .popup-row { color: var(--muted); }
+
+/* ---- HUD glow (dark theme only) ------------------------------------------ */
+:root[data-theme="dark"] body {
+  background:
+    radial-gradient(1100px 480px at 18% -12%, rgba(46, 230, 200, .07), transparent 60%),
+    radial-gradient(900px 460px at 100% -5%, rgba(255, 138, 61, .05), transparent 60%),
+    var(--bg);
+}
+:root[data-theme="dark"] .panel { box-shadow: 0 0 0 1px rgba(46, 230, 200, .05), 0 8px 22px rgba(0, 0, 0, .5); }
+:root[data-theme="dark"] .panel > header { box-shadow: 0 7px 16px -9px var(--accent); }
+:root[data-theme="dark"] .panel > header h2 { text-shadow: 0 0 11px rgba(46, 230, 200, .4); }
+:root[data-theme="dark"] .brand .logo { box-shadow: 0 0 14px -2px var(--accent); }
+/* stat-card numbers kept solid (no glow) */
+:root[data-theme="dark"] .pill.live .dot { box-shadow: 0 0 10px var(--low); }
+:root[data-theme="dark"] .live-frame { box-shadow: inset 0 0 36px rgba(0, 0, 0, .65); }
+:root[data-theme="dark"] .badge { box-shadow: 0 0 12px -3px currentColor; }
+
+/* ---- KPI gauge row --------------------------------------------------- */
+.gauges-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+@media (max-width: 520px) { .gauges-row { grid-template-columns: 1fr; } }
+.gw { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 6px 0; }
+.gsvg { width: 118px; height: 118px; }
+.gtrk { fill: none; stroke: var(--border); stroke-width: 8; stroke-dasharray: 188.5 62.8; stroke-linecap: round; }
+:root[data-theme="dark"] .gtrk { stroke: #3A5E82; }   /* clearly visible track on the dark HUD */
+.gval { fill: none; stroke: var(--accent); stroke-width: 8; stroke-linecap: round; stroke-dasharray: 0 999;
+  transition: stroke-dasharray .6s ease, stroke .3s; }
+.gval-t { fill: var(--text); font: 700 22px ui-monospace, Consolas, monospace;
+  text-anchor: middle; dominant-baseline: middle; }
+.gw-l { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .5px; font-weight: 600; }
+:root[data-theme="dark"] .gval { filter: drop-shadow(0 0 5px currentColor); }
+
+/* ---- urgency triage tiles ------------------------------------------- */
+.triage-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+@media (max-width: 620px) { .triage-row { grid-template-columns: repeat(2, 1fr); } }
+.tri { background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px;
+  padding: 11px 14px; border-top: 2px solid var(--muted); }
+.tri .k { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .5px; font-weight: 600; }
+.tri .v { font-size: 26px; font-weight: 800; margin-top: 3px; line-height: 1; }
+.tri .u { color: var(--muted); font-size: 10.5px; margin-top: 3px; }
+.tri-imm { border-top-color: var(--high); } .tri-imm .v { color: var(--high); }
+.tri-sch { border-top-color: var(--med); } .tri-sch .v { color: var(--med); }
+.tri-rou { border-top-color: var(--accent); } .tri-rou .v { color: var(--accent); }
+.tri-mon { border-top-color: var(--low); } .tri-mon .v { color: var(--low); }
+/* triage numbers kept solid (no glow) */
+
+/* ---- priority work queue -------------------------------------------- */
+.queue { display: flex; flex-direction: column; gap: 8px; max-height: 320px; overflow: auto; }
+.q-empty { color: var(--muted); text-align: center; padding: 24px; font-size: 13px; }
+.q-item { display: flex; align-items: flex-start; gap: 10px; padding: 9px 11px;
+  background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; }
+.q-sev { width: 9px; height: 9px; border-radius: 50%; margin-top: 5px; flex: 0 0 auto; }
+.q-thumb { width: 44px; height: 44px; border-radius: 6px; object-fit: cover; flex: 0 0 auto; border: 1px solid var(--border); background: var(--surface); }
+.q-main { flex: 1; min-width: 0; }
+.q-top { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+.q-top b { text-transform: capitalize; font-size: 13.5px; }
+.q-ch { color: var(--muted); font-size: 11.5px; white-space: nowrap; }
+.q-act { color: var(--muted); font-size: 11.5px; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.q-urg { font-weight: 800; font-size: 16px; color: var(--accent); flex: 0 0 auto; }
+/* queue urgency number kept solid (no glow) */
