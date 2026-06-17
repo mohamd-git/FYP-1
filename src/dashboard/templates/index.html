@@ -10,7 +10,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet" />
 
   <link rel="stylesheet" href="/static/vendor/leaflet/leaflet.css" />
-  <link rel="stylesheet" href="/static/css/app.css?v=6" />
+  <link rel="stylesheet" href="/static/css/app.css?v=7" />
 </head>
 <body>
   <!-- ===== top bar ===== -->
@@ -26,8 +26,8 @@
       state <b id="agv-state">—</b> &nbsp;|&nbsp; fps <b id="hb-fps">—</b>
       &nbsp;|&nbsp; dist <b id="hb-dist">—</b> &nbsp;|&nbsp; batt <b id="hb-batt">—</b>
     </div>
-    <span class="pill off" id="conn"><span class="dot"></span><span class="lbl">connecting…</span></span>
-    <button class="btn" id="theme-btn">☀ Light</button>
+    <span class="pill off" id="conn" aria-live="polite"><span class="dot"></span><span class="lbl">connecting…</span></span>
+    <button class="btn" id="theme-btn" aria-label="Toggle light or dark theme">☀ Light</button>
   </header>
 
   <main class="wrap">
@@ -144,11 +144,11 @@
         <span class="count" id="row-count">0 rows</span>
         <span class="spacer"></span>
         <div class="controls">
-          <select id="filter-sev" title="Filter by severity">
+          <select id="filter-sev" title="Filter by severity" aria-label="Filter by severity">
             <option value="all">All severities</option>
             <option value="High">High</option><option value="Medium">Medium</option><option value="Low">Low</option>
           </select>
-          <select id="filter-class" title="Filter by class"><option value="all">All classes</option></select>
+          <select id="filter-class" title="Filter by class" aria-label="Filter by class"><option value="all">All classes</option></select>
           <a class="btn accent" href="/export.csv">&#11015; Download CSV</a>
           <a class="btn" href="/export.json">JSON</a>
         </div>
@@ -180,6 +180,6 @@
   <script src="/static/vendor/leaflet/leaflet.js"></script>
   <script src="/static/vendor/chart.umd.min.js"></script>
   <script src="/static/socket.io.min.js"></script>
-  <script src="/static/js/app.js?v=6"></script>
+  <script src="/static/js/app.js?v=7"></script>
 </body>
 </html>

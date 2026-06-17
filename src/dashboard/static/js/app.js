@@ -15,6 +15,25 @@ const sevColor = (s) => css(s === "High" ? "--high" : s === "Medium" ? "--med" :
 const $ = (id) => document.getElementById(id);
 const setText = (id, v) => { const el = $(id); if (el) el.textContent = v; };
 
+// Count a numeric element toward `to` for a polished, live feel (respects reduced-motion).
+const _numTimers = new Map();
+function animateNumber(id, to) {
+  const el = $(id);
+  if (!el) return;
+  to = Number(to) || 0;
+  const reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const from = Number(String(el.textContent).replace(/[^0-9.-]/g, "")) || 0;
+  if (reduce || from === to) { el.textContent = to; return; }
+  if (_numTimers.has(id)) cancelAnimationFrame(_numTimers.get(id));
+  const t0 = performance.now(), dur = 500;
+  const step = (t) => {
+    const k = Math.min(1, (t - t0) / dur);
+    el.textContent = Math.round(from + (to - from) * (1 - Math.pow(1 - k, 3)));  // ease-out cubic
+    if (k < 1) _numTimers.set(id, requestAnimationFrame(step));
+  };
+  _numTimers.set(id, requestAnimationFrame(step));
+}
+
 // ---- state -------------------------------------------------------------
 const defects = new Map();          // key -> normalised defect
 const markers = new Map();          // key -> Leaflet circleMarker
@@ -68,7 +87,7 @@ function upsertMarker(key, d) {
     m.setLatLng([d.lat, d.lng]); m.setStyle({ color, fillColor: color });
     m.setPopupContent(popupHtml(d));
   } else {
-    const m = L.circleMarker([d.lat, d.lng], { radius: 7, color, fillColor: color, fillOpacity: .85, weight: 2 });
+    const m = L.circleMarker([d.lat, d.lng], { radius: 7, color, fillColor: color, fillOpacity: .85, weight: 2, className: "pin-" + d.severity });
     m.addTo(map).bindPopup(popupHtml(d));
     markers.set(key, m);
   }
@@ -113,7 +132,7 @@ function renderExtras(arr) {
   // urgency triage counts
   const c = { imm: 0, sch: 0, rou: 0, mon: 0 };
   arr.forEach((d) => { c[bandOf(Number(d.urgency_score) || 0)]++; });
-  setText("t-imm", c.imm); setText("t-sch", c.sch); setText("t-rou", c.rou); setText("t-mon", c.mon);
+  animateNumber("t-imm", c.imm); animateNumber("t-sch", c.sch); animateNumber("t-rou", c.rou); animateNumber("t-mon", c.mon);
 
   // priority work queue (highest urgency first)
   const q = $("queue");
@@ -171,8 +190,8 @@ function renderCards() {
   const arr = [...defects.values()];
   const c = { High: 0, Medium: 0, Low: 0 };
   arr.forEach((d) => { c[d.severity] = (c[d.severity] || 0) + 1; });
-  setText("c-total", arr.length);
-  setText("c-high", c.High); setText("c-med", c.Medium); setText("c-low", c.Low);
+  animateNumber("c-total", arr.length);
+  animateNumber("c-high", c.High); animateNumber("c-med", c.Medium); animateNumber("c-low", c.Low);
   // track health score: severity-weighted condition index (documented, honest)
   const T = arr.length || 1;
   const health = Math.max(0, Math.round(100 * (1 - 0.6 * c.High / T - 0.3 * c.Medium / T - 0.1 * c.Low / T)));
