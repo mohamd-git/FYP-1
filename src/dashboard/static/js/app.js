@@ -240,7 +240,13 @@ function renderCards() {
   const T = arr.length || 1;
   const health = Math.max(0, Math.round(100 * (1 - 0.6 * c.High / T - 0.3 * c.Medium / T - 0.1 * c.Low / T)));
   const hv = $("c-health");
-  if (hv) { hv.textContent = arr.length ? health + "%" : "—"; hv.style.color = health >= 75 ? css("--low") : health >= 50 ? css("--med") : css("--high"); }
+  const healthColor = health >= 75 ? css("--low") : health >= 50 ? css("--med") : css("--high");
+  if (hv) {
+    hv.textContent = arr.length ? health + "%" : "—";
+    hv.style.color = arr.length ? healthColor : "";
+    const hcard = hv.closest(".card");                       // match the other cards' coloured left bar
+    if (hcard) hcard.style.borderLeft = arr.length ? ("4px solid " + healthColor) : "";
+  }
   setText("c-health-l", arr.length ? (health >= 75 ? "Good" : health >= 50 ? "Fair" : "Poor") : "");
   [["c-high", c.High], ["c-med", c.Medium], ["c-low", c.Low]].forEach(([id, n]) => {
     const card = $(id) && $(id).closest(".card");
